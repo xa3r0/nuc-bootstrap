@@ -63,6 +63,7 @@ if ! command -v docker >/dev/null 2>&1; then
   sudo apt-get update -y
   sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   sudo usermod -aG docker "$USER" || true
+  info "If 'docker' group was just added, run: newgrp docker  # or log out/in"
   info "Docker: $(docker --version)"
   info "Docker Compose: $(docker compose version)"
 else
