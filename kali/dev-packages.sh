@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ======================================================================
-# Arch Linux dev-packages (nuc-bootstrap)
+# Kali Linux dev-packages (nuc-bootstrap)
 # Categories: Eye Candy, Utilities, Support, Dev
-# Uses pacman; optional AUR via yay if present.
+# Uses apt-get; prefers VSCodium over VS Code.
 # ======================================================================
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -13,45 +13,33 @@ warn() { printf "\033[1;33m[!]\033[0m %s\n" "$*"; }
 err()  { printf "\033[1;31m[x]\033[0m %s\n" "$*"; }
 
 require_sudo() { if [[ $EUID -ne 0 ]]; then command -v sudo >/dev/null || { err "sudo missing"; exit 1; }; sudo -v || { err "sudo auth failed"; exit 1; }; fi; }
-update_indexes() { sudo pacman -Sy --noconfirm; }
-pkg_install() { sudo pacman -S --noconfirm --needed "$@"; }
+update_indexes() { sudo apt-get update -y; }
+pkg_install() { sudo apt-get install -y --no-install-recommends "$@"; }
 
 # ----------------- Package sets -----------------
-EYE_CANDY=(ttf-fira-code gnome-tweaks bat eza neofetch)
-# Note: Extension manager is in AUR as 'extension-manager'
-UTILS=(htop btop curl wget ca-certificates gnupg unzip zip xz tree ripgrep jq xclip fzf tmux)
-SUPPORT=(base-devel pkgconf lsb-release neovim flatpak)
-DEV=(git git-lfs zsh python python-pipx jdk-openjdk go rustup direnv shellcheck clang cmake)
+EYE_CANDY=(fonts-firacode gnome-tweaks gnome-shell-extension-manager bat eza neofetch)
+UTILS=(htop btop curl wget ca-certificates gnupg unzip zip xz-utils tree ripgrep jq xclip fzf tmux)
+SUPPORT=(build-essential pkg-config lsb-release software-properties-common apt-transport-https neovim flatpak gnome-software-plugin-flatpak)
+DEV=(git git-lfs zsh python3 python3-venv python3-pip pipx openjdk-21-jdk golang rustup direnv shellcheck clang cmake)
 
-install_extension_manager_if_yay() {
-  if command -v extension-manager >/dev/null 2>&1; then return 0; fi
-  if command -v yay >/dev/null 2>&1; then
-    info "Installing GNOME Extension Manager from AUR via yay…"
-    yay -S --noconfirm extension-manager || warn "AUR install failed"
+install_codium_optional() {
+  # Try VSCodium if available in Kali repos; if not, recommend enabling the official VSCodium repo
+  if command -v codium >/dev/null 2>&1; then return 0; fi
+  info "Attempting to install VSCodium (preferred on Kali)…"
+  if apt-cache policy codium | grep -q Candidate; then
+    pkg_install codium || warn "codium install failed"
   else
-    warn "extension-manager (AUR) not installed (no yay found)"
+    warn "codium not in current repos. Consider enabling VSCodium repo: https://vscodium.com/#install"
   fi
 }
 
-install_vscode_optional() {
-  # Choose OSS 'code' from community or VSCodium (AUR: vscodium-bin)
-  if command -v code >/dev/null 2>&1; then return 0; fi
-  info "Installing 'code' (community) — optional editor"
-  sudo pacman -S --noconfirm --needed code || warn "Install 'code' failed; consider 'vscodium-bin' via AUR"
-}
-
 post_steps() {
-  # pipx path (python-pipx already installed)
-  python -m pipx ensurepath || true
-
-  # rustup bootstrap (user-space)
+  python3 -m pipx ensurepath || true
   if ! command -v rustc >/dev/null 2>&1; then
     info "Installing Rust via rustup for ${SUDO_USER:-$USER}"
     if [[ -n "${SUDO_USER:-}" ]]; then su - "${SUDO_USER}" -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
     else curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; fi
   fi
-
-  # NVM + Node (if not already)
   if ! command -v node >/dev/null 2>&1; then
     info "Installing Node via NVM for ${SUDO_USER:-$USER}"
     if [[ -n "${SUDO_USER:-}" ]]; then
@@ -74,15 +62,13 @@ main() {
   update_indexes
 
   info "Installing Eye Candy…";   pkg_install "${EYE_CANDY[@]}"
-  install_extension_manager_if_yay || true
-
   info "Installing Utilities…";   pkg_install "${UTILS[@]}"
   info "Installing Support…";     pkg_install "${SUPPORT[@]}"
   info "Installing Dev stack…";   pkg_install "${DEV[@]}"
 
-  install_vscode_optional || true
+  install_codium_optional || true
   post_steps
 
-  log "Arch dev-packages complete."
+  log "Kali dev-packages complete."
 }
 main "$@"
